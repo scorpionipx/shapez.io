@@ -1,7 +1,4 @@
-/* typehints:start */
-import { GameRoot } from "./root";
-/* typehints:end */
-
+import { GameRoot, enumLayer } from "./root";
 import { globalConfig } from "../core/config";
 import { Vector } from "../core/vector";
 import { Entity } from "./entity";
@@ -46,7 +43,6 @@ export class BaseMap extends BasicSerializableObject {
      * @param {number} chunkY
      */
     getChunk(chunkX, chunkY, createIfNotExistent = false) {
-        // TODO: Better generation
         const chunkIdentifier = chunkX + "|" + chunkY;
         let storedChunk;
 
@@ -102,14 +98,15 @@ export class BaseMap extends BasicSerializableObject {
     /**
      * Returns the tile content of a given tile
      * @param {Vector} tile
+     * @param {enumLayer} layer
      * @returns {Entity} Entity or null
      */
-    getTileContent(tile) {
+    getTileContent(tile, layer) {
         if (G_IS_DEV) {
             this.internalCheckTile(tile);
         }
         const chunk = this.getChunkAtTileOrNull(tile.x, tile.y);
-        return chunk && chunk.getTileContentFromWorldCoords(tile.x, tile.y);
+        return chunk && chunk.getLayerContentFromWorldCoords(tile.x, tile.y, layer);
     }
 
     /**
@@ -126,35 +123,49 @@ export class BaseMap extends BasicSerializableObject {
      * Returns the tile content of a given tile
      * @param {number} x
      * @param {number} y
+     * @param {enumLayer} layer
      * @returns {Entity} Entity or null
      */
-    getTileContentXY(x, y) {
+    getLayerContentXY(x, y, layer) {
         const chunk = this.getChunkAtTileOrNull(x, y);
-        return chunk && chunk.getTileContentFromWorldCoords(x, y);
+        return chunk && chunk.getLayerContentFromWorldCoords(x, y, layer);
+    }
+
+    /**
+     * Returns the tile contents of a given tile
+     * @param {number} x
+     * @param {number} y
+     * @returns {Array<Entity>} Entity or null
+     */
+    getLayersContentsMultipleXY(x, y) {
+        const chunk = this.getChunkAtTileOrNull(x, y);
+        return chunk && chunk.getLayersContentsMultipleFromWorldCoords(x, y);
     }
 
     /**
      * Checks if the tile is used
      * @param {Vector} tile
+     * @param {enumLayer} layer
      * @returns {boolean}
      */
-    isTileUsed(tile) {
+    isTileUsed(tile, layer) {
         if (G_IS_DEV) {
             this.internalCheckTile(tile);
         }
         const chunk = this.getChunkAtTileOrNull(tile.x, tile.y);
-        return chunk && chunk.getTileContentFromWorldCoords(tile.x, tile.y) != null;
+        return chunk && chunk.getLayerContentFromWorldCoords(tile.x, tile.y, layer) != null;
     }
 
     /**
      * Checks if the tile is used
      * @param {number} x
      * @param {number} y
+     * @param {enumLayer} layer
      * @returns {boolean}
      */
-    isTileUsedXY(x, y) {
+    isTileUsedXY(x, y, layer) {
         const chunk = this.getChunkAtTileOrNull(x, y);
-        return chunk && chunk.getTileContentFromWorldCoords(x, y) != null;
+        return chunk && chunk.getLayerContentFromWorldCoords(x, y, layer) != null;
     }
 
     /**
@@ -167,7 +178,12 @@ export class BaseMap extends BasicSerializableObject {
             this.internalCheckTile(tile);
         }
 
-        this.getOrCreateChunkAtTile(tile.x, tile.y).setTileContentFromWorldCords(tile.x, tile.y, entity);
+        this.getOrCreateChunkAtTile(tile.x, tile.y).setLayerContentFromWorldCords(
+            tile.x,
+            tile.y,
+            entity,
+            entity.layer
+        );
 
         const staticComponent = entity.components.StaticMapEntity;
         assert(staticComponent, "Can only place static map entities in tiles");
@@ -185,7 +201,7 @@ export class BaseMap extends BasicSerializableObject {
             for (let dy = 0; dy < rect.h; ++dy) {
                 const x = rect.x + dx;
                 const y = rect.y + dy;
-                this.getOrCreateChunkAtTile(x, y).setTileContentFromWorldCords(x, y, entity);
+                this.getOrCreateChunkAtTile(x, y).setLayerContentFromWorldCords(x, y, entity, entity.layer);
             }
         }
     }
@@ -202,20 +218,9 @@ export class BaseMap extends BasicSerializableObject {
             for (let dy = 0; dy < rect.h; ++dy) {
                 const x = rect.x + dx;
                 const y = rect.y + dy;
-                this.getOrCreateChunkAtTile(x, y).setTileContentFromWorldCords(x, y, null);
+                this.getOrCreateChunkAtTile(x, y).setLayerContentFromWorldCords(x, y, null, entity.layer);
             }
         }
-    }
-
-    /**
-     * Resets the tiles content
-     * @param {Vector} tile
-     */
-    clearTile(tile) {
-        if (G_IS_DEV) {
-            this.internalCheckTile(tile);
-        }
-        this.getOrCreateChunkAtTile(tile.x, tile.y).setTileContentFromWorldCords(tile.x, tile.y, null);
     }
 
     // Internal

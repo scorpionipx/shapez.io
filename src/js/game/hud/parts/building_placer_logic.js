@@ -12,7 +12,7 @@ import { BaseHUDPart } from "../base_hud_part";
 import { SOUNDS } from "../../../platform/sound";
 import { MetaMinerBuilding, enumMinerVariants } from "../../buildings/miner";
 import { enumHubGoalRewards } from "../../tutorial_goals";
-import { enumEditMode } from "../../root";
+import { enumLayer } from "../../root";
 
 /**
  * Contains all logic for the building placer - this doesn't include the rendering
@@ -125,12 +125,12 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
 
     /**
      * Called when the edit mode got changed
-     * @param {enumEditMode} editMode
+     * @param {enumLayer} editMode
      */
     onEditModeChanged(editMode) {
         const metaBuilding = this.currentMetaBuilding.get();
         if (metaBuilding) {
-            if (metaBuilding.getEditLayer() !== editMode) {
+            if (metaBuilding.getLayer() !== editMode) {
                 // This layer doesn't fit the edit mode anymore
                 this.currentMetaBuilding.set(null);
             }
@@ -276,7 +276,7 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
 
         const worldPos = this.root.camera.screenToWorld(mousePosition);
         const tile = worldPos.toTileSpace();
-        const contents = this.root.map.getTileContent(tile);
+        const contents = this.root.map.getTileContent(tile, this.root.currentLayer);
         if (contents) {
             if (this.root.logic.tryDeleteBuilding(contents)) {
                 this.root.soundProxy.playUi(SOUNDS.destroyBuilding);
@@ -302,7 +302,7 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
         const worldPos = this.root.camera.screenToWorld(mousePosition);
         const tile = worldPos.toTileSpace();
 
-        const contents = this.root.map.getTileContent(tile);
+        const contents = this.root.map.getTileContent(tile, this.root.currentLayer);
         if (!contents) {
             const tileBelow = this.root.map.getLowerLayerContentXY(tile.x, tile.y);
 
@@ -322,7 +322,13 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
 
         // Try to extract the building
         const extracted = this.hack_reconstructMetaBuildingAndVariantFromBuilding(contents);
-        if (!extracted) {
+
+        // If the building we are picking is the same as the one we have, clear the cursor.
+        if (
+            !extracted ||
+            (extracted.metaBuilding === this.currentMetaBuilding.get() &&
+                extracted.variant === this.currentVariant.get())
+        ) {
             this.currentMetaBuilding.set(null);
             return;
         }
@@ -330,11 +336,6 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
         this.currentMetaBuilding.set(extracted.metaBuilding);
         this.currentVariant.set(extracted.variant);
         this.currentBaseRotation = contents.components.StaticMapEntity.rotation;
-
-        // Make sure we selected something, and also make sure it's not a special entity
-        // if (contents && !contents.components.Unremovable) {
-
-        // }
     }
 
     /**
@@ -443,12 +444,13 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
         }
 
         const metaBuilding = this.currentMetaBuilding.get();
-        const { rotation, rotationVariant } = metaBuilding.computeOptimalDirectionAndRotationVariantAtTile(
-            this.root,
+        const { rotation, rotationVariant } = metaBuilding.computeOptimalDirectionAndRotationVariantAtTile({
+            root: this.root,
             tile,
-            this.currentBaseRotation,
-            this.currentVariant.get()
-        );
+            rotation: this.currentBaseRotation,
+            variant: this.currentVariant.get(),
+            layer: metaBuilding.getLayer(),
+        });
 
         const entity = this.root.logic.tryPlaceBuilding({
             origin: tile,
@@ -558,8 +560,15 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
 
         // Figure which points the line visits
         const worldPos = this.root.camera.screenToWorld(mousePosition);
-        const mouseTile = worldPos.toTileSpace();
-        const startTile = this.lastDragTile;
+        let endTile = worldPos.toTileSpace();
+        let startTile = this.lastDragTile;
+
+        // if the alt key is pressed, reverse belt planner direction by switching start and end tile
+        if (this.root.keyMapper.getBinding(KEYMAPPINGS.placementModifiers.placeInverse).pressed) {
+            let tmp = startTile;
+            startTile = endTile;
+            endTile = tmp;
+        }
 
         // Place from start to corner
         const pathToCorner = this.currentDirectionLockCorner.sub(startTile);
@@ -580,7 +589,7 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
         }
 
         // Place from corner to end
-        const pathFromCorner = mouseTile.sub(this.currentDirectionLockCorner);
+        const pathFromCorner = endTile.sub(this.currentDirectionLockCorner);
         const deltaFromCorner = pathFromCorner.normalize().round();
         const lengthFromCorner = Math.round(pathFromCorner.length());
 
@@ -748,7 +757,7 @@ export class HUDBuildingPlacerLogic extends BaseHUDPart {
                 while (this.currentlyDeleting || this.currentMetaBuilding.get()) {
                     if (this.currentlyDeleting) {
                         // Deletion
-                        const contents = this.root.map.getTileContentXY(x0, y0);
+                        const contents = this.root.map.getLayerContentXY(x0, y0, this.root.currentLayer);
                         if (contents && !contents.queuedForDestroy && !contents.destroyed) {
                             if (this.root.logic.tryDeleteBuilding(contents)) {
                                 anythingDeleted = true;

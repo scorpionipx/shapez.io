@@ -4,7 +4,7 @@ import { clamp, findNiceIntegerValue, randomChoice, randomInt } from "../core/ut
 import { BasicSerializableObject, types } from "../savegame/serialization";
 import { enumColors } from "./colors";
 import { enumItemProcessorTypes } from "./components/item_processor";
-import { GameRoot } from "./root";
+import { GameRoot, enumLayer } from "./root";
 import { enumSubShape, ShapeDefinition } from "./shape_definition";
 import { enumHubGoalRewards, tutorialGoals } from "./tutorial_goals";
 import { UPGRADES, blueprintShape } from "./upgrades";
@@ -106,13 +106,14 @@ export class HubGoals extends BasicSerializableObject {
 
         // Allow quickly switching goals in dev mode
         if (G_IS_DEV) {
-            if (G_IS_DEV) {
-                window.addEventListener("keydown", ev => {
-                    if (ev.key === "b") {
+            window.addEventListener("keydown", ev => {
+                if (ev.key === "b") {
+                    // root is not guaranteed to exist within ~0.5s after loading in
+                    if (this.root && this.root.app && this.root.app.gameAnalytics) {
                         this.onGoalCompleted();
                     }
-                });
-            }
+                }
+            });
         }
     }
 
@@ -369,9 +370,13 @@ export class HubGoals extends BasicSerializableObject {
 
     /**
      * Belt speed
+     * @param {enumLayer} layer
      * @returns {number} items / sec
      */
-    getBeltBaseSpeed() {
+    getBeltBaseSpeed(layer) {
+        if (layer === enumLayer.wires) {
+            return globalConfig.wiresSpeedItemsPerSecond;
+        }
         return globalConfig.beltSpeedItemsPerSecond * this.upgradeImprovements.belt;
     }
 
@@ -433,6 +438,9 @@ export class HubGoals extends BasicSerializableObject {
                     this.upgradeImprovements.processors *
                     globalConfig.buildingSpeeds[processorType]
                 );
+            }
+            case enumItemProcessorTypes.advancedProcessor: {
+                return globalConfig.beltSpeedItemsPerSecond * globalConfig.buildingSpeeds[processorType];
             }
             default:
                 assertAlways(false, "invalid processor type: " + processorType);

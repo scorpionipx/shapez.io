@@ -1,10 +1,21 @@
 import { DrawParameters } from "../core/draw_parameters";
 import { BasicSerializableObject } from "../savegame/serialization";
+import { enumLayer } from "./root";
 
 /** @enum {string} */
 export const enumItemType = {
     shape: "shape",
     color: "color",
+    positiveEnergy: "positiveEnergy",
+    negativeEnergy: "negativeEnergy",
+};
+
+/** @enum {enumLayer} */
+export const enumItemTypeToLayer = {
+    [enumItemType.shape]: enumLayer.regular,
+    [enumItemType.color]: enumLayer.regular,
+    [enumItemType.positiveEnergy]: enumLayer.wires,
+    [enumItemType.negativeEnergy]: enumLayer.wires,
 };
 
 /**

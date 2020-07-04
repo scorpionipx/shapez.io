@@ -6,6 +6,8 @@ import { Entity } from "../entity";
 import { GameSystemWithFilter } from "../game_system_with_filter";
 import { ColorItem } from "../items/color_item";
 import { ShapeItem } from "../items/shape_item";
+import { enumLayer } from "../root";
+import { NEGATIVE_ENERGY_ITEM_SINGLETON } from "../items/negative_energy_item";
 
 export class ItemProcessorSystem extends GameSystemWithFilter {
     constructor(root) {
@@ -48,11 +50,14 @@ export class ItemProcessorSystem extends GameSystemWithFilter {
                         if (ejectorComp.canEjectOnSlot(preferredSlot)) {
                             slot = preferredSlot;
                         } else {
-                            slot = ejectorComp.getFirstFreeSlot();
+                            /* FIXME: WIRES */
+                            slot = ejectorComp.getFirstFreeSlot(enumLayer.regular);
                         }
                     } else {
+                        /* FIXME: WIRES */
+
                         // We can eject on any slot
-                        slot = ejectorComp.getFirstFreeSlot();
+                        slot = ejectorComp.getFirstFreeSlot(enumLayer.regular);
                     }
 
                     if (slot !== null) {
@@ -70,7 +75,16 @@ export class ItemProcessorSystem extends GameSystemWithFilter {
             // Check if we have an empty queue and can start a new charge
             if (processorComp.itemsToEject.length === 0) {
                 if (processorComp.inputSlots.length >= processorComp.inputsPerCharge) {
-                    this.startNewCharge(entity);
+                    const energyConsumerComp = entity.components.EnergyConsumer;
+                    if (energyConsumerComp) {
+                        // Check if we have enough energy
+                        if (energyConsumerComp.tryStartNextCharge()) {
+                            this.startNewCharge(entity);
+                        }
+                    } else {
+                        // No further checks required
+                        this.startNewCharge(entity);
+                    }
                 }
             }
         }
@@ -328,6 +342,19 @@ export class ItemProcessorSystem extends GameSystemWithFilter {
                     hubComponent.queueShapeDefinition(shapeItem.definition);
                 }
 
+                break;
+            }
+
+            // ADVANCED PROCESSING
+
+            case enumItemProcessorTypes.advancedProcessor: {
+                const shapeItem = /** @type {ShapeItem} */ (items[0].item);
+                const newItem = this.root.shapeDefinitionMgr.shapeActionInvertColors(shapeItem.definition);
+
+                outItems.push({
+                    item: new ShapeItem(newItem),
+                    requiredSlot: 0,
+                });
                 break;
             }
 

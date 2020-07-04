@@ -1,12 +1,13 @@
 import { enumDirection, Vector } from "../../core/vector";
+import { enumItemType } from "../base_item";
+import { EnergyGeneratorComponent } from "../components/energy_generator";
 import { ItemAcceptorComponent } from "../components/item_acceptor";
+import { ItemEjectorComponent } from "../components/item_ejector";
+import { enumPinSlotType, WiredPinsComponent } from "../components/wired_pins";
 import { Entity } from "../entity";
 import { MetaBuilding } from "../meta_building";
-import { GameRoot } from "../root";
+import { enumLayer, GameRoot } from "../root";
 import { enumHubGoalRewards } from "../tutorial_goals";
-import { EnergyGeneratorComponent } from "../components/energy_generator";
-import { WiredPinsComponent, enumPinSlotType } from "../components/wired_pins";
-import { enumItemType } from "../base_item";
 
 export class MetaEnergyGenerator extends MetaBuilding {
     constructor() {
@@ -51,17 +52,6 @@ export class MetaEnergyGenerator extends MetaBuilding {
             new ItemAcceptorComponent({
                 slots: [
                     {
-                        pos: new Vector(0, 0),
-                        directions: [enumDirection.top],
-                        filter: enumItemType.shape,
-                    },
-
-                    {
-                        pos: new Vector(1, 0),
-                        directions: [enumDirection.top],
-                        filter: enumItemType.shape,
-                    },
-                    {
                         pos: new Vector(0, 1),
                         directions: [enumDirection.bottom],
                         filter: enumItemType.shape,
@@ -70,6 +60,24 @@ export class MetaEnergyGenerator extends MetaBuilding {
                         pos: new Vector(1, 1),
                         directions: [enumDirection.bottom],
                         filter: enumItemType.shape,
+                    },
+                    {
+                        pos: new Vector(1, 0),
+                        directions: [enumDirection.top],
+                        layer: enumLayer.wires,
+                        filter: enumItemType.negativeEnergy,
+                    },
+                ],
+            })
+        );
+
+        entity.addComponent(
+            new ItemEjectorComponent({
+                slots: [
+                    {
+                        pos: new Vector(0, 0),
+                        direction: enumDirection.top,
+                        layer: enumLayer.wires,
                     },
                 ],
             })
@@ -79,6 +87,7 @@ export class MetaEnergyGenerator extends MetaBuilding {
             new EnergyGeneratorComponent({
                 // Set by the energy generator system later
                 requiredKey: null,
+                acceptorSlotIndex: 2,
             })
         );
 
@@ -87,19 +96,13 @@ export class MetaEnergyGenerator extends MetaBuilding {
                 slots: [
                     {
                         pos: new Vector(0, 0),
-                        type: enumPinSlotType.energyEjector,
+                        type: enumPinSlotType.positiveEnergyEjector,
+                        direction: enumDirection.top,
                     },
                     {
                         pos: new Vector(1, 0),
-                        type: enumPinSlotType.energyEjector,
-                    },
-                    {
-                        pos: new Vector(0, 1),
-                        type: enumPinSlotType.energyEjector,
-                    },
-                    {
-                        pos: new Vector(1, 1),
-                        type: enumPinSlotType.energyEjector,
+                        type: enumPinSlotType.negativeEnergyAcceptor,
+                        direction: enumDirection.top,
                     },
                 ],
             })
